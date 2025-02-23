@@ -1,3 +1,3 @@
-document.getElementById("clickMe").addEventListener("click", () => {
+document.getElementById("click").addEventListener("click", () => {
     alert("Button Clicked!");
 });
