@@ -1,10 +1,21 @@
 {
-    "name": "Chrome Extension",
-    "description": "Base Level Extension",
-    "version": "1.0",
-    "manifest_version": 3,
-    "action": {
-      "default_popup": "popup.html",
-      "default_icon": "icon.png"
+  "name": "EcoCart",
+  "description": "Base Level Extension",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://www.amazon.com/*"],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.amazon.com/*"],
+      "js": ["scripts/content.js"]
     }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "images/icon.png"
+  }
 }
