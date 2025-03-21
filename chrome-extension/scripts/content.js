@@ -11,7 +11,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		product.name = document.getElementById("productTitle")?.textContent.trim() || null;
 
 		// Get brand name 
-		product.brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
+		let brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
+		product.brand = brand.replace(/^(Visit the )?(.*?)( Store)?$/i, "$2").trim();
+
 
 		// Get product facts (Information under "product-facts-title")
 		product.facts = {};
