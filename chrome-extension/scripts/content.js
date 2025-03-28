@@ -22,7 +22,6 @@ function scrapeAmazonProduct(sendResponse) {
 	let brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
 	product.brand = (brand) ? brand.replace(/^(?:Brand:\s*|Visit the )?(.*?)(?: Store)?$/i, "$1").trim() : null;
 	
-
 	// Get product facts (Information under "product-facts-title")
 	product.facts = {};
 

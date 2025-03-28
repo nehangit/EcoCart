@@ -6,7 +6,7 @@ document.getElementById("button").addEventListener("click", () => {
     if (chrome.runtime.lastError) {
       console.error("Error message:", chrome.runtime.lastError.message);
     } else {
-      console.log("Message sent to background.js", response);
+      console.log("Message sent to background.js: ", response);
     }
   });
 });
