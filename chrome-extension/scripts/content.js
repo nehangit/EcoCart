@@ -1,16 +1,24 @@
-// Listens for messages from background.js
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	console.log("Received message in content.js:", message);
+// Check if there is already a listener in the window
+if (!window.hasContentScriptListener) {
+	window.hasContentScriptListener = true;
 
-	if (message.action === "scrape") {
-		console.log("Scrape action received. Extracting product data...");
-		
-		scrapeAmazonProduct(sendResponse);
-		
-		// Indicates that we using sendResponse asynchronously
-		return true;
-	}
-});
+	// Listens for messages from background.js
+	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+		console.log("Received message in content.js:", message);
+
+		if (message.action === "scrape") {
+			console.log("Scrape action received. Extracting product data...");
+			
+			let product = scrapeAmazonProduct(sendResponse);
+			console.log("Extracted product data:", product);
+
+			// Send the extracted data back to background.js
+			sendResponse({ productData: product });
+
+			return true;
+		}
+	});
+}
 
 function scrapeAmazonProduct(sendResponse) {
 	let product = {};
@@ -36,9 +44,6 @@ function scrapeAmazonProduct(sendResponse) {
 		// Add the key-value pair to the facts object
 		if (key) {product.facts[key] = value;}
 	});
-
-	console.log("Extracted product data:", product);
-
-	// Send the extracted data back to background.js
-	sendResponse({ productData: product });
+	
+	return product;
 }

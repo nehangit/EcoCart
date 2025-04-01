@@ -9,39 +9,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 		// Get the current active tab
 		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-			const url = tabs[0].url; // active tab's url
+			if (!tabs.length) {
+				sendError("No active tab found.");
+				return sendResponse({ success: false, message: "No active tab found."});
+			}
+		
+			let tabId = tabs[0].id // active tab's id
+			let tabUrl = tabs[0].url // active tabs url
 
-			// Check if URL is valid on an allowed website (Amazon)
-			if (url.includes("amazon.com")) {
-
-				// Send message to content script running in the current active tab. 
-				// Note that tabs[0] is the active tab's id
-				chrome.tabs.sendMessage(tabs[0].id, { action: "scrape" }, (response) => {
-					// Respond back to the popup.js after receiving data from content script
-					if (response) {
-						// Send success response to popup.js
-						sendResponse({ success: true, data: response.productData });
-						
-						// Send data to backend
-						sendDataToBackend(response.productData).then((result) => {
-							// Do something else with result, but just log it for now
-							console.log("Data successfully sent to backend ", result);
-						}).catch((error) => {
-							console.error("Error sending data to backend: ", error);
-						}); 
-
-					} else {
-						// If no data received from content.js
-						sendResponse({ success: false, message: "No data received from content script." });
-					}
-				});
-			} else { 
-				// alertUser("This extension is not supported on this website.");
-				// should update the extension UI 
+			// Check if the website is supported by the extension.
+			if (!isSupportedWebsite(tabUrl)) {
+				sendError("This extension is not supported on this website.");
+				return sendResponse({ success: false, message: "This extension is not supported on this website." });
 			}
 			
+			// Inject content script before sending a message
+			chrome.scripting.executeScript({
+				target: { tabId: tabId }, // The tab where the script is injected
+				files: ["scripts/content.js"] // The script being injected
+			}, () => {
+				if (chrome.runtime.lastError) {
+					sendError("Failed to inject content script.");
+					return sendResponse({ success: false, message: "Failed to inject content script." });
+				}
+				console.log("Content script injected successfully.");
+
+				chrome.tabs.sendMessage(tabId, { action: "scrape" }, (response) => {
+					// Bad response from content.js
+					if (!response) {
+						sendError("Could not retrieve product data. Please try again.")
+						return sendResponse({ success: false, message: "Could not retrieve product data. Please try again."})
+					}
+					
+					// Send success response to popup.js
+					sendResponse({ success: true, data: response.productData });
+					
+					// Send data to backend
+					sendDataToBackend(response.productData).then((result) => {
+						// Do something else with result, but just log it for now
+						console.log("Data successfully sent to backend ", result);
+					}).catch((error) => {
+						sendError("Failed to send data to backend. Please try again.")
+						
+					});
+				});
+			});
 		});
-		
 		// Tells Chrome to wait for sendResponse so the 'message port' does not close automatically
 		return true;
 	}
@@ -71,8 +84,24 @@ async function sendDataToBackend(productData) {
 	}
 }
 
-function alertUser(message) {
-	// TODO
+function isSupportedWebsite(url) {
+	const supportedWebsites = ["amazon.com"]
+	return supportedWebsites.some(domain => url.includes(domain))
+}
+
+function notifyUser(message) {
+	chrome.notifications.create({
+		type: "basic",
+		iconUrl: chrome.runtime.getURL("images/icon.png"),
+		title: "Error encountered :(",
+		message: message,
+		priority: 2
+	});
+}
+
+function sendError(message) {
+	console.error(message);
+	notifyUser(message);
 }
 
 
