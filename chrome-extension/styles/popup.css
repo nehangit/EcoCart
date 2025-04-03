@@ -1,0 +1,41 @@
+body {
+	overflow: hidden; 
+	width: 300px; 
+	padding: 10px; 
+	background-color: #f2f2f2;
+}
+.app-container {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid red;
+	background-color: #f2f2f2;
+	gap: 20px;
+}
+.header {
+	background-color: white;
+	border: 1px solid #d4d4d4;
+	padding: 8px;
+
+	.header__text {
+		font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+		font-size: 25px;
+		font-weight: bold;
+		text-align: center;
+	}
+}
+main {
+	border: 1px solid blue;
+	background-color: white;
+	.product {
+		padding: 8px;
+		border: 1px solid green;
+
+		.product-name {
+			font-size: 15px;
+			text-align: left;
+			
+		}
+	}
+}
+
+
