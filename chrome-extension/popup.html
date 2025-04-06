@@ -9,17 +9,39 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="header">
-            <div class="header__text">EcoCart</div>
-        </div>
+        <header>
+            <div id="header-text">EcoCart</div>
+        </header>
 
         <main>
-            <div class="product">
-                <div class="product-name">Product: </div>
+            <!-- <div id="start-state" class="state">👆 Click the button to find out if your product is sustainable ♻️</div> -->
+            
+            <div id="processing-state" class="state">
+                <div class="product">
+                    <div id="product-name">Product: Placeholder </div>
+                </div>
+                <div class="sustainable">
+                    <div class="sustainable__desc">Is this product sustainable?</div>
+                </div>
+                <div id="loader"></div>
             </div>
-            <button id="button">Scrape Product Data</button>
+
+            <!-- <div class="state__error"></div>
+            <div class="state__success"></div> -->
+
+            <!-- <div class="product">
+                <div id="product-name">Product: Placeholder </div>
+            </div>
+            <div class="sustainable">
+                <div class="sustainable__desc">Is this product sustainable?</div>
+                <div class="sustainable__bool">Yes/No (Placeholder)</div>
+                <div class="loader"></div>
+            </div> -->
+            <div class="button-container">
+                <button id="button">Click Me</button>
+
+            </div>
         </main>
     </div>
-    
 </body>
 </html>

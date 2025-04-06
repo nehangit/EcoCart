@@ -11,4 +11,24 @@ document.getElementById("button").addEventListener("click", () => {
   });
 });
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "updateProduct") {
+    const productData = message.data;
+    
+    document.getElementById("product-name").textContent = productData.name;
+    console.log("Updated product name: ", productData.name);
+  }
+});
+
+function renderProcessingState() {
+
+}
+
+function renderErrorState() {
+
+}
+
+function renderSuccessState() {
+  
+}
 
