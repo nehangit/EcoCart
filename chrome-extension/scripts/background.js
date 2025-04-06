@@ -40,7 +40,7 @@ async function handleScrapeRequest(sendResponse) {
 		
 		const response = await sendScrapeMessage(tab.id) // Send message to scrape to content.js
 		// Bad response from content.js
-		if (!response) { 
+		if (!response || response.productData.name === null) { 
 			throw new Error("Could not retrieve product data. Please try again."); 
 		}
 		sendResponse({ success: true, data: response.productData});
