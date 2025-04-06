@@ -45,6 +45,9 @@ async function handleScrapeRequest(sendResponse) {
 		}
 		sendResponse({ success: true, data: response.productData});
 
+		// Tell popup to fill in data on product.
+		chrome.runtime.sendMessage({ action: "updateProduct", data: response.productData })
+
 		// Send data to backend
 		await sendDataToBackend(response.productData); // Will throw error if something goes wrong
 		console.log("Data successfully sent to backend.");
@@ -168,7 +171,3 @@ function sendError(message) {
 	notifyUser(message);
 	if (isProcessing) isProcessing = false;  // Allow requests again if there is an ongoing request
 }
-
-
-
-
