@@ -37,8 +37,8 @@ async function handleScrapeRequest(sendResponse) {
 			throw new Error("This extension is not supported on this website.");
 		}
 		await injectContentScript(tab.id); // Inject the content script before sending a message
-		
 		const response = await sendScrapeMessage(tab.id) // Send message to scrape to content.js
+
 		// Bad response from content.js
 		if (!response || response.productData.name === null) { 
 			throw new Error("Could not retrieve product data. Please try again."); 

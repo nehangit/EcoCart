@@ -20,19 +20,48 @@ if (!window.hasContentScriptListener) {
 	});
 }
 
+/**
+ * Retrieves all the relevant amazon product data from the current webpage.
+ * @returns {object}
+ */
 function scrapeAmazonProduct() {
-	let product = {};
+	const product = {};
 
 	// Get product name 
 	product.name = document.getElementById("productTitle")?.textContent.trim() || null;
-
 
 	// Get brand name 
 	let brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
 	product.brand = (brand) ? brand.replace(/^(?:Brand:\s*|Visit the )?(.*?)(?: Store)?$/i, "$1").trim() : null;
 	
 	// Get product facts (Information under "product-facts-title")
-	product.facts = {};
+	product.facts = getFactsSection();
+
+	// Get the "About this item" section
+	product.about = getAboutSection();
+
+	// Get the "Product Description" section
+	let descriptionEle = document.querySelector("#productDescription span");
+	product.description = descriptionEle?.textContent.trim() || null;
+
+	// Get the feature bullets section. Section rarely appears and usually only when the other info sections are missing
+	product.featureBullets = getFeatureBullets();
+	if (product.featureBullets) fillInInfoFromFeatureBullets(product.featureBullets, product);
+
+	// TODO Check for a sustainable features section (if there is time).
+
+	// Checks for a "sustainable" synonym in the all the scraped product info
+	product.sustainableKeyword = containsSustainableKeyword(product) || false;
+
+	return product;
+}
+
+/**
+ * Retrieves data from the "Product details" section and wraps it in an object.
+ * @returns {object} 
+ */
+function getFactsSection() {
+	const facts = {};
 
 	// Select all <li> elements (these have the fact-values)
 	let listItems = document.querySelectorAll("ul.a-nostyle > li");
@@ -43,12 +72,18 @@ function scrapeAmazonProduct() {
 		let value = item.querySelector("div.a-col-right")?.textContent.trim() || null;
 
 		// Add the key-value pair to the facts object
-		if (key) {product.facts[key] = value;}
+		if (key) {facts[key] = value;}
 	});
+	return facts;
+}
 
-	// Get the "About this item" section
+/**
+ * Retrieves the text from the "About this item" section and puts it an array.
+ * @returns {object}
+ */
+function getAboutSection() {
 	let aboutBullets = [];
-	let aboutHeader = Array.from(document.querySelectorAll("h3.product-facts-title"))
+	const aboutHeader = Array.from(document.querySelectorAll("h3.product-facts-title"))
 										.find(ele => ele.textContent.trim().toLowerCase().includes("about this item"));
 	if (aboutHeader) {
 		const ul = aboutHeader.nextElementSibling;
@@ -58,18 +93,74 @@ function scrapeAmazonProduct() {
 			aboutBullets = Array.from(listItems).map(span => span.textContent.trim()) || null;
 		}
 	}
-	product.about = aboutBullets;
-
-	// Get the "Product Description" section
-	let descriptionEle = document.querySelector("#productDescription span");
-	product.description = descriptionEle?.textContent.trim() || null;
-	
-	// TODO Check for a sustainable features section
-	product.sustainableKeyword = containsSustainableKeyword(product) || false;
-
-	return product;
+	return aboutBullets;
 }
 
+/**
+ * Gets data from an untitled section about the product. This section is rare and usually appears when the
+ * other information sections are not present.
+ * @returns {object}
+ */
+function getFeatureBullets() {
+	const bulletNodes = Array.from(document.querySelectorAll("#feature-bullets ul li span.a-list-item"));
+		if (!bulletNodes || bulletNodes.length === 0) {
+			console.log("No feature bullets found.");
+			return null;
+		}
+	const cleanBullets = bulletNodes.map(ele => ele.textContent.trim()).filter(text => text.length > 0);
+
+	// Captures percentages (if they exist) as well the actual material name
+	const fabricRegex = /\b(?:\d{1,3}%\s*)?(cotton|polyester|spandex|nylon|rayon|wool|silk|linen|hemp|jute|leather|acrylic|viscose|denim|elastane)\b/i;
+	// Captures machine wash, hand wash, dry clean, tumble dry, line dry, with dashes or spaces between the words. And captures do no bleach
+	const careRegex = /\b(machine[\s-]?wash(?:able)?|hand[\s-]?wash(?: only)?|dry[\s-]?clean(?: only)?|tumble[\s-]?dry|line[\s-]?dry|do not bleach)\b/i;
+	// Captures phrases like made in {country} and the word imported
+	const originRegex = /\b(made in [a-z\s]+|imported)\b/i;
+
+	const info = {
+		fabric: [],
+		care: [],
+		origin: [],
+		other: []
+	};
+
+	cleanBullets.forEach(bullet => {
+		// Replaces anything not a word character, whitespace, %, or -
+		const cleanText = bullet.replace(/[^\w\s%-]/gi, "").toLowerCase();
+
+		const fabricMatch = cleanText.match(fabricRegex);
+		const careMatch = cleanText.match(careRegex);
+		const originMatch = cleanText.match(originRegex);
+
+		if (fabricMatch) {
+			info.fabric.push(fabricMatch[0]); // Push only the % and fabric that matched
+		} else if (careMatch) {
+			info.care.push(careMatch[0]); // Push only the phrase that matched
+		} else if (originMatch) {
+			info.origin.push(originMatch[0]); // Push only the phrase that matched
+		} else {
+			info.other.push(bullet);
+		}
+	});
+
+	return info;
+}
+
+/**
+ * If the product facts are empty, then fill them with information collected from feature bullets (if any)
+ * @param {object} featureBullets 
+ * @param {object} product 
+ */
+function fillInInfoFromFeatureBullets(featureBullets, product) {
+	if (featureBullets.fabric.length > 0) product.facts["Fabric type"] = featureBullets.fabric;
+	if (featureBullets.care.length > 0) product.facts["Care instructions"] = featureBullets.care;
+	if (featureBullets.origin.length > 0) product.facts["Country of origin"] = featureBullets.origin;
+}
+
+/**
+ * Checks if all the relevant text on the product contains a keyword related to "sustainble".
+ * @param {object} product 
+ * @returns {boolean}
+ */
 function containsSustainableKeyword(product) {
 	// By no means is this an exhaustive list. Find a better way obviously
 	const sustainableWords = [
