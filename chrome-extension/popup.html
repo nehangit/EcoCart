@@ -14,29 +14,30 @@
         </header>
 
         <main>
-            <!-- <div id="start-state" class="state">👆 Click the button to find out if your product is sustainable ♻️</div> -->
+            <div id="state-start" class="state active" style="text-align: center;">👆 Click the button to find out if your product is sustainable ♻️</div>
             
-            <div id="processing-state" class="state">
+            <div id="state-error" class="state" style="text-align: center;"><!--Error Message--></div>
+
+            <div id="state-processing" class="state flex">
                 <div class="product">
-                    <div id="product-name">Product: Placeholder </div>
+                    <div id="product-name-processing"><!--Name of Product--></div>
                 </div>
                 <div class="sustainable">
-                    <div class="sustainable__desc">Is this product sustainable?</div>
+                    <div class="sustainable-desc">Is this product sustainable?</div>
                 </div>
                 <div id="loader"></div>
             </div>
 
-            <!-- <div class="state__error"></div>
-            <div class="state__success"></div> -->
-
-            <!-- <div class="product">
-                <div id="product-name">Product: Placeholder </div>
+            <div id="state-success" class="state flex">
+                <div class="product">
+                    <div id="product-name-success"><!--Name of Product--></div>
+                </div>
+                <div class="sustainable">
+                    <div id="sustainable-desc">Is this product sustainable?</div>
+                    <div id="sustainable-bool">✅YES/NO❌</div>
+                </div>
             </div>
-            <div class="sustainable">
-                <div class="sustainable__desc">Is this product sustainable?</div>
-                <div class="sustainable__bool">Yes/No (Placeholder)</div>
-                <div class="loader"></div>
-            </div> -->
+            
             <div class="button-container">
                 <button id="button">Click Me</button>
 

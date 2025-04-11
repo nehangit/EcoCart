@@ -4,6 +4,7 @@ import pandas as pd
 import re
 
 app = Flask(__name__)
+
 CORS(app) # Enable CORS so frontend (the extension) can communicate with backend
 
 columns = [
@@ -90,7 +91,10 @@ def receive_data():
 
         return jsonify({
             "success": True, 
-            "message": "Data received", 
+            "message": "Data received",
+ #########################################################################################
+            "sustainable": False, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
+ #########################################################################################
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
         }), 200
