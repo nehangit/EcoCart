@@ -19,7 +19,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Handles the scraping for popup.js
  * @param {*} sendResponse 
- * @returns 
  */
 async function handleScrapeRequest(sendResponse) {
 	// If backend is current processing a request, then stop execution.
@@ -118,7 +117,7 @@ function injectContentScript(tabId) {
  * @returns {Promise<object>}
  */
 function sendScrapeMessage(tabId) {
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
 		chrome.tabs.sendMessage(tabId, { action: "scrape" }, (response) => {
 			if (chrome.runtime.lastError) {
 				console.error("sendScrapeMessage error:", chrome.runtime.lastError.message);

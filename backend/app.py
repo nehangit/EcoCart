@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS # Import CORS to allow cross-origin requests
 import pandas as pd
@@ -14,7 +15,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 
-df = pd.read_excel("/Users/jingyuanni/Documents/GitHub/team8-dev-ada/Full Dataset.xlsx")
+# Gets the path to the directory containing this script (app.py)
+current_dir = Path(__file__).resolve().parent
+# Create a relative path to dataset file
+dataset_path = current_dir.parent / "Full Dataset.xlsx"
+
+df = pd.read_excel(dataset_path)
 
 #df.dropna(inplace=True)
 
@@ -61,9 +67,10 @@ best_model = grid_search.best_estimator_
 app = Flask(__name__)
 CORS(app, resources={
     r"/receive-data": {
-        "origins": ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof"],
+        "origins": ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", 
+                    "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"],
         "methods": ["POST", "OPTIONS", "GET"],
-        "allow_headers": ["Content-Type", "Authorization"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
         "supports_credentials": True,
         "expose_headers": ["Content-Type"],
         "max_age": 86400
@@ -71,11 +78,11 @@ CORS(app, resources={
 })
 
 # Additional headers to ensure compatibility
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+# @app.after_request
+# def after_request(response):
+#     response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof')
+#     response.headers.add('Access-Control-Allow-Credentials', 'true')
+#     return response
 
 columns = [
     'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
@@ -261,26 +268,35 @@ def hello_world():
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
 def receive_data():
     if request.method == "OPTIONS":
-        # Respond to preflight request with correct CORS headers
-        response = jsonify({"message": "CORS preflight successful"})
-        response.headers.add("Access-Control-Allow-Origin", "chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response, 200 # Preflight successful
+    #     # Respond to preflight request with correct CORS headers
+    #     response = jsonify({"message": "CORS preflight successful"})
+    #     response.headers.add("Access-Control-Allow-Origin", "chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk")
+    #     response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+    #     response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    #     response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return '', 200 # Preflight successful     
     
     global df
     try:
         data = request.get_json() # Extract JSON from request
+        print(data)
+
         if not data:
             return jsonify({"success": False, "message": "No data received."}), 400
         
-        #Create a new df
-        results = []
-        for product in data:
-            new_row = add_to_dataframe(product)
-            if new_row:
-                results.append(new_row)
+        # Hey Brian Im not sure how exactly youre working with the product. This caused 
+        # an INTERNAL SERVER ERROR so I commented it out and replaced it with whats below
+
+        # #Create a new df
+        # results = []
+        # for product in data:
+        #     new_row = add_to_dataframe(product)
+        #     if new_row:
+        #         results.append(new_row)
+
+        new_row = add_to_dataframe(data)
+        if not new_row:
+            return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
             "success": True, 
