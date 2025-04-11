@@ -93,28 +93,52 @@ def parse_fabric_string(fabric_string):
     
     for part in parts:
         compositions = []
+        has_percentages = False
+        
         # Remove any prefix like "Body: " or "Hood Lining: "
         part_name = "Main"
         if ':' in part:
             part_split = part.split(':', 1)
             part_name = part_split[0].strip()
             part = part_split[1]
-            
+        
         # Process each comma-separated composition
-        for composition in part.split(','):
-            composition = composition.strip()
-            # Match patterns like "56% Cotton" or "100% nylon"
-            match = re.match(r'(\d+)%\s+([\w\s-]+)', composition)
-            if match:
-                percentage = float(match.group(1)) / 100
-                fabric = match.group(2).strip().capitalize()
-                compositions.append((fabric, percentage))
-            else:
-                # Handle the case where there's just a fabric name without percentage
-                # Assume 100% if only the fabric is mentioned
-                fabric_only = composition.strip().capitalize()
-                if fabric_only and not re.match(r'\d+%', fabric_only):
-                    compositions.append((fabric_only, 1.0))
+        items = [item.strip() for item in part.split(',') if item.strip()]
+        
+        # First pass: check if any percentages are present
+        for item in items:
+            if re.search(r'\d+%', item):
+                has_percentages = True
+                break
+        
+        # Second pass: parse compositions based on whether percentages exist
+        if has_percentages:
+            # If some items have percentages, process normally
+            for composition in items:
+                # Match patterns like "56% Cotton" or "100% nylon"
+                match = re.match(r'(\d+)%\s+([\w\s-]+)', composition)
+                if match:
+                    percentage = float(match.group(1)) / 100
+                    fabric = match.group(2).strip().capitalize()
+                    compositions.append((fabric, percentage))
+                else:
+                    # Handle items without percentage in a mixed context
+                    # Since some items have percentages but this one doesn't,
+                    # we'll need to handle this as a special case or ignore
+                    fabric_only = composition.strip().capitalize()
+                    if fabric_only and not re.match(r'\d+%', fabric_only):
+                        # In a mixed context, we might assign a default value
+                        # or flag this for special handling
+                        pass
+        else:
+            # If no percentages found, distribute evenly
+            total_items = len(items)
+            if total_items > 0:
+                even_percentage = 1.0 / total_items
+                for item in items:
+                    fabric = item.strip().capitalize()
+                    if fabric:
+                        compositions.append((fabric, even_percentage))
         
         if compositions:
             part_compositions.append((part_name, compositions))
@@ -128,9 +152,31 @@ def parse_fabric_composition(fabric_data):
     if isinstance(fabric_data, str):
         return parse_fabric_string(fabric_data)
     elif isinstance(fabric_data, list):
+        # For array input, first check if any part has percentages
+        has_percentages = False
+        all_items = []
+        
         for item in fabric_data:
             if isinstance(item, str):
-                all_part_compositions.extend(parse_fabric_string(item))
+                if re.search(r'\d+%', item):
+                    has_percentages = True
+                all_items.append(item)
+        
+        # If no percentages in array, distribute evenly
+        if not has_percentages and all_items:
+            even_percentage = 1.0 / len(all_items)
+            compositions = []
+            for item in all_items:
+                fabric = item.strip().capitalize()
+                if fabric:
+                    compositions.append((fabric, even_percentage))
+            if compositions:
+                all_part_compositions.append(("Main", compositions))
+        else:
+            # Process normally if percentages exist
+            for item in fabric_data:
+                if isinstance(item, str):
+                    all_part_compositions.extend(parse_fabric_string(item))
     
     return all_part_compositions
 
@@ -154,7 +200,7 @@ def normalize_fabric_name(fabric):
             return col
     
     # If no match found, return the original name
-    return fabric
+    return "Other"
 
 def average_fabric_compositions(part_compositions):
     """
