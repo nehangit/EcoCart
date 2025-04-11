@@ -141,7 +141,12 @@ async function sendDataToBackend(productData) {
 		// Asynchronous request to backend
 		const response = await fetch(url, {
 			method: "POST",
-			headers: {"Content-type": "application/json"}, // Set content type to JSON
+			mode : "cors",
+			credentials: "include",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Requested-With": "XMLHttpRequest" 
+			}, // Set content type to JSON
 			body: JSON.stringify(productData)
 		});
 
