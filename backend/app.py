@@ -20,18 +20,19 @@ current_dir = Path(__file__).resolve().parent
 # Create a relative path to dataset file
 dataset_path = current_dir.parent / "Full Dataset.xlsx"
 
-df = pd.read_excel(dataset_path)
+#this is used to train the model
+model_df = pd.read_excel(dataset_path)
 
 #df.dropna(inplace=True)
 
-df['Type'] = LabelEncoder().fit_transform(df['Type'])
-df['Manufacturing_location'] = LabelEncoder().fit_transform(df['Manufacturing_location'])
-df['Use_location'] = LabelEncoder().fit_transform(df['Use_location'])
-df['Drying_instruction'] = LabelEncoder().fit_transform(df['Drying_instruction'])
-df['Washing_instruction'] = LabelEncoder().fit_transform(df['Washing_instruction'])
+model_df['Type'] = LabelEncoder().fit_transform(model_df['Type'])
+model_df['Manufacturing_location'] = LabelEncoder().fit_transform(model_df['Manufacturing_location'])
+model_df['Use_location'] = LabelEncoder().fit_transform(model_df['Use_location'])
+model_df['Drying_instruction'] = LabelEncoder().fit_transform(model_df['Drying_instruction'])
+model_df['Washing_instruction'] = LabelEncoder().fit_transform(model_df['Washing_instruction'])
 
-X = df.iloc[:,:-1]
-y = df.iloc[:,-1]
+X = model_df.iloc[:,:-1]
+y = model_df.iloc[:,-1]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, 
@@ -40,29 +41,17 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y        
 )
 
-param_grid = {
-    'n_estimators': [100, 125, 150, 175, 200],
-    'max_leaf_nodes': [None, 10, 20, 50],
-    'min_samples_leaf': [1, 2, 5],
-    'min_weight_fraction_leaf': [0.0, 0.01, 0.05]
-}
-
 rfc = RandomForestClassifier(
-    #n_estimators=100,   
-    random_state=42
+    n_estimators=150,  
+    max_leaf_nodes=None,
+    min_samples_leaf=1,
+    min_weight_fraction_leaf=0.0, 
+    random_state=42,
 )
 
-grid_search = GridSearchCV(
-    estimator=rfc,
-    param_grid=param_grid,
-    cv=5,              
-    scoring='accuracy',
-    n_jobs=-1          
-)
+rfc.fit(X_train, y_train)
 
-grid_search.fit(X_train, y_train)
-
-best_model = grid_search.best_estimator_
+best_model = rfc
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -296,6 +285,16 @@ def receive_data():
         #         results.append(new_row)
 
         new_row = add_to_dataframe(data)
+        
+        #train the data in new row
+        X_new = new_row.iloc[:, :-1]
+        result_value = best_model.predict(X_new)
+        
+        if result_value <= 3:
+            result = False
+        else:
+            result = True
+            
         if not new_row:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
@@ -303,7 +302,11 @@ def receive_data():
             "success": True, 
             "message": "Data received",
  #########################################################################################
+<<<<<<< HEAD
             "sustainable": best_model, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
+=======
+            "sustainable": result, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
+>>>>>>> origin/main
  #########################################################################################
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
