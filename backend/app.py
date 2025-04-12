@@ -4,6 +4,7 @@ from flask_cors import CORS # Import CORS to allow cross-origin requests
 import pandas as pd
 import re
 from collections import defaultdict
+import random
 
 import sklearn as skl
 import numpy as np
@@ -20,18 +21,23 @@ current_dir = Path(__file__).resolve().parent
 # Create a relative path to dataset file
 dataset_path = current_dir.parent / "Full Dataset.xlsx"
 
-df = pd.read_excel(dataset_path)
+#this is used to train the model
+model_df = pd.read_excel(dataset_path)
+
+# Extract Use_location options and calculate average Transportation_distance for filling
+use_locations = model_df['Use_location'].unique().tolist()
+avg_transportation_distance = model_df['Transporation_distance'].mean()
 
 #df.dropna(inplace=True)
 
-df['Type'] = LabelEncoder().fit_transform(df['Type'])
-df['Manufacturing_location'] = LabelEncoder().fit_transform(df['Manufacturing_location'])
-df['Use_location'] = LabelEncoder().fit_transform(df['Use_location'])
-df['Drying_instruction'] = LabelEncoder().fit_transform(df['Drying_instruction'])
-df['Washing_instruction'] = LabelEncoder().fit_transform(df['Washing_instruction'])
+model_df['Type'] = LabelEncoder().fit_transform(model_df['Type'])
+model_df['Manufacturing_location'] = LabelEncoder().fit_transform(model_df['Manufacturing_location'])
+model_df['Use_location'] = LabelEncoder().fit_transform(model_df['Use_location'])
+model_df['Drying_instruction'] = LabelEncoder().fit_transform(model_df['Drying_instruction'])
+model_df['Washing_instruction'] = LabelEncoder().fit_transform(model_df['Washing_instruction'])
 
-X = df.iloc[:,:-1]
-y = df.iloc[:,-1]
+X = model_df.iloc[:,:-1]
+y = model_df.iloc[:,-1]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, 
@@ -40,29 +46,17 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y        
 )
 
-param_grid = {
-    'n_estimators': [100, 125, 150, 175, 200],
-    'max_leaf_nodes': [None, 10, 20, 50],
-    'min_samples_leaf': [1, 2, 5],
-    'min_weight_fraction_leaf': [0.0, 0.01, 0.05]
-}
-
 rfc = RandomForestClassifier(
-    #n_estimators=100,   
-    random_state=42
+    n_estimators=150,  
+    max_leaf_nodes=None,
+    min_samples_leaf=1,
+    min_weight_fraction_leaf=0.0, 
+    random_state=42,
 )
 
-grid_search = GridSearchCV(
-    estimator=rfc,
-    param_grid=param_grid,
-    cv=5,              
-    scoring='accuracy',
-    n_jobs=-1          
-)
+rfc.fit(X_train, y_train)
 
-grid_search.fit(X_train, y_train)
-
-best_model = grid_search.best_estimator_
+best_model = rfc
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -86,8 +80,8 @@ CORS(app, resources={
 
 columns = [
     'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
-    'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide',
-    'Other_synthetic', 'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other'
+    'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
+    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Use_location', 'Transportation_distance'
 ]
 df = pd.DataFrame(columns=columns)
 
@@ -238,7 +232,11 @@ def average_fabric_compositions(part_compositions):
     return averaged_compositions
 
 def add_to_dataframe(data):
-    global df
+    global df, use_locations, avg_transportation_distance
+
+    # Initialize all values to 0.0
+    new_row = {col: 0.0 for col in columns}
+
     if not data.get('facts') or not data['facts'].get('Fabric type'):
         return None
     
@@ -248,16 +246,19 @@ def add_to_dataframe(data):
     # Average the percentages for the same fabrics across different parts
     averaged_compositions = average_fabric_compositions(part_compositions)
     
-    # Initialize all values to 0.0
-    new_row = {col: 0.0 for col in columns}
-    
     # Fill in the averaged percentages
     for fabric, percentage in averaged_compositions:
         if fabric in columns:
             new_row[fabric] = percentage
+
+    # Fill in Use_location from pick random location from training data
+    new_row['Use_location'] = random.choice(use_locations)
+    
+    # Fill in Transportation_distance from average from training data
+    new_row['Transportation_distance'] = avg_transportation_distance
     
     # Add new row to the existing DataFrame
-    new_df = pd.DataFrame([new_row], dtype='float64')
+    new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
     return new_row
 
@@ -267,14 +268,15 @@ def hello_world():
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
 def receive_data():
-    if request.method == "OPTIONS":
+    # if request.method == "OPTIONS":
     #     # Respond to preflight request with correct CORS headers
     #     response = jsonify({"message": "CORS preflight successful"})
-    #     response.headers.add("Access-Control-Allow-Origin", "chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk")
-    #     response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-    #     response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    #     response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return '', 200 # Preflight successful     
+    #     allowed_origins = ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"]
+    #     response.headers.set("Access-Control-Allow-Origin", ", ".join(allowed_origins))
+    #     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
+    #     response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
+    #     response.headers.set('Access-Control-Allow-Credentials', 'true')
+    #     return '', 200 # Preflight successful     
     
     global df
     try:
@@ -295,20 +297,105 @@ def receive_data():
         #         results.append(new_row)
 
         new_row = add_to_dataframe(data)
+        
+        new_row_df = pd.DataFrame(new_row)
+        #train the data in new row
+        X_new = new_row_df.iloc[:, :-1]
+        result_value = best_model.predict(X_new)
+        
+        if result_value <= 3:
+            result = False
+        else:
+            result = True
+            
         if not new_row:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
             "success": True, 
             "message": "Data received",
- #########################################################################################
-            "sustainable": False, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
- #########################################################################################
+            "sustainable": result,
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/test-data', methods=['GET', 'POST'])
+def test_data():
+    """Test endpoint that runs sample data through the pipeline using the same logic as receive-data"""
+    try:
+        # If POST method is used, use the provided test data
+        if request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({"success": False, "message": "No test data provided."}), 400
+        else:
+            # Default test data for GET requests
+            data = {
+                "facts": {
+                    "Fabric type": "60% Cotton, 40% Polyester",
+                }
+            }
+        
+        print("Processing test data:", data)
+        
+        # Use the same logic as the receive-data endpoint
+        new_row = add_to_dataframe(data)
+        
+        new_row_df = pd.DataFrame([new_row])
+        # Train the data in new row
+        X_new = new_row_df.iloc[:, :-1]
+        result_value = best_model.predict(X_new)
+        
+        if result_value <= 3:
+            result = False
+        else:
+            result = True
+            
+        if not new_row:
+            return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
+
+        return jsonify({
+            "success": True, 
+            "message": "Test data processed",
+            "sustainable": result,
+            "dataframe": df[columns].to_dict(orient="records"), 
+            "new_entry": new_row
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in test endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e), "traceback": traceback.format_exc()}), 500
+    
+# Add an endpoint to test different fabric compositions
+@app.route('/test-fabrics', methods=['GET'])
+def test_fabrics():
+    """Test endpoint that runs different fabric compositions through the parser"""
+    test_fabrics = [
+        "100% Cotton",
+        "80% Polyester, 20% Spandex",
+        "Body: 70% Cotton, 30% Polyester; Lining: 100% Cotton",
+        "Cotton, Polyester",  # No percentages
+        "Shell: 95% Organic_cotton, 5% Elastane; Lining: 100% Cotton"
+    ]
+    
+    results = []
+    for fabric in test_fabrics:
+        part_compositions = parse_fabric_string(fabric)
+        averaged = average_fabric_compositions(part_compositions)
+        results.append({
+            "original": fabric,
+            "parsed_parts": part_compositions,
+            "averaged": averaged
+        })
+    
+    return jsonify({
+        "success": True,
+        "fabric_test_results": results
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=True)  
