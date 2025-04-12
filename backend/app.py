@@ -20,7 +20,7 @@ current_dir = Path(__file__).resolve().parent
 # Create a relative path to dataset file
 dataset_path = current_dir.parent / "Full Dataset.xlsx"
 
-
+#this is used to train the model
 model_df = pd.read_excel(dataset_path)
 
 #df.dropna(inplace=True)
@@ -284,6 +284,16 @@ def receive_data():
         #         results.append(new_row)
 
         new_row = add_to_dataframe(data)
+        
+        #train the data in new row
+        X_new = new_row.iloc[:, :-1]
+        result_value = best_model.predict(X_new)
+        
+        if result_value <= 3:
+            result = False
+        else:
+            result = True
+            
         if not new_row:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
@@ -291,7 +301,7 @@ def receive_data():
             "success": True, 
             "message": "Data received",
  #########################################################################################
-            "sustainable": False, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
+            "sustainable": result, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
  #########################################################################################
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
