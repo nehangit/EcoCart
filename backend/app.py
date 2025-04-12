@@ -86,8 +86,8 @@ CORS(app, resources={
 
 columns = [
     'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
-    'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide',
-    'Other_synthetic', 'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other'
+    'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
+    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Use_location', 'Transportation_distance'
 ]
 df = pd.DataFrame(columns=columns)
 
@@ -267,14 +267,15 @@ def hello_world():
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
 def receive_data():
-    if request.method == "OPTIONS":
+    # if request.method == "OPTIONS":
     #     # Respond to preflight request with correct CORS headers
     #     response = jsonify({"message": "CORS preflight successful"})
-    #     response.headers.add("Access-Control-Allow-Origin", "chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk")
-    #     response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-    #     response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    #     response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return '', 200 # Preflight successful     
+    #     allowed_origins = ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"]
+    #     response.headers.set("Access-Control-Allow-Origin", ", ".join(allowed_origins))
+    #     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
+    #     response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
+    #     response.headers.set('Access-Control-Allow-Credentials', 'true')
+    #     return '', 200 # Preflight successful     
     
     global df
     try:
@@ -302,7 +303,7 @@ def receive_data():
             "success": True, 
             "message": "Data received",
  #########################################################################################
-            "sustainable": False, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
+            "sustainable": best_model, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
  #########################################################################################
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
