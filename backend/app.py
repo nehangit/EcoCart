@@ -4,6 +4,7 @@ from flask_cors import CORS # Import CORS to allow cross-origin requests
 import pandas as pd
 import re
 from collections import defaultdict
+import random
 
 import sklearn as skl
 import numpy as np
@@ -22,6 +23,10 @@ dataset_path = current_dir.parent / "Full Dataset.xlsx"
 
 #this is used to train the model
 model_df = pd.read_excel(dataset_path)
+
+# Extract Use_location options and calculate average Transportation_distance for filling
+use_locations = model_df['Use_location'].unique().tolist()
+avg_transportation_distance = model_df['Transportation_distance'].mean()
 
 #df.dropna(inplace=True)
 
@@ -227,7 +232,11 @@ def average_fabric_compositions(part_compositions):
     return averaged_compositions
 
 def add_to_dataframe(data):
-    global df
+    global df, use_locations, avg_transportation_distance
+
+    # Initialize all values to 0.0
+    new_row = {col: 0.0 for col in columns}
+
     if not data.get('facts') or not data['facts'].get('Fabric type'):
         return None
     
@@ -237,13 +246,26 @@ def add_to_dataframe(data):
     # Average the percentages for the same fabrics across different parts
     averaged_compositions = average_fabric_compositions(part_compositions)
     
-    # Initialize all values to 0.0
-    new_row = {col: 0.0 for col in columns}
-    
     # Fill in the averaged percentages
     for fabric, percentage in averaged_compositions:
         if fabric in columns:
             new_row[fabric] = percentage
+
+    # Fill in Use_location from data if available, otherwise pick random location from training data
+    if data.get('facts') and data['facts'].get('Use location'):
+        new_row['Use_location'] = data['facts']['Use location']
+    elif use_locations:
+        new_row['Use_location'] = random.choice(use_locations)
+    
+    # Fill in Transportation_distance from data if available, otherwise use average from training data
+    if data.get('facts') and data['facts'].get('Transportation distance'):
+        try:
+            new_row['Transportation_distance'] = float(data['facts']['Transportation distance'])
+        except (ValueError, TypeError):
+            # If conversion fails, use average
+            new_row['Transportation_distance'] = avg_transportation_distance
+    else:
+        new_row['Transportation_distance'] = avg_transportation_distance
     
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row], dtype='float64')
@@ -301,13 +323,7 @@ def receive_data():
         return jsonify({
             "success": True, 
             "message": "Data received",
- #########################################################################################
-<<<<<<< HEAD
-            "sustainable": best_model, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
-=======
-            "sustainable": result, # REPLACE THIS VALUE WITH WHAT THE MODEL SPITS OUT
->>>>>>> origin/main
- #########################################################################################
+            "sustainable": result,
             "dataframe": df[columns].to_dict(orient="records"), 
             "new_entry": new_row
         }), 200
