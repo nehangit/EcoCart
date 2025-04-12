@@ -50,8 +50,10 @@ function scrapeAmazonProduct() {
 
 	// TODO Check for a sustainable features section (if there is time).
 
-	// Checks for a "sustainable" synonym in the all the scraped product info
-	product.sustainableKeyword = containsSustainableKeyword(product) || false;
+	// Checks for "recycle" and "reuse" keywords and adds these values to product
+	const { hasRecycle, hasReuse } = containsRecycleAndReuseKeyword(product);
+	product.recycled = hasRecycle;
+	product.reused = hasReuse;
 
 	return product;
 }
@@ -157,31 +159,17 @@ function fillInInfoFromFeatureBullets(featureBullets, product) {
 }
 
 /**
- * Checks if all the relevant text on the product contains a keyword related to "sustainble".
+ * Checks for "recycle" and "reuse" keywords in the product text.
  * @param {object} product 
- * @returns {boolean}
+ * @returns {object}
  */
-function containsSustainableKeyword(product) {
-	// By no means is this an exhaustive list. Find a better way obviously
-	const sustainableWords = [
-		"biodegradable", "compostable", "organic",
-		"bioplastics",
-		"carbon neutral", "carbon offsetting",
-		"ethically sourced", "responsibly sourced",
-		"plant-based", "vegan", "vegetarian",
-		"recyclable", "recycled", "renewable", "renewed", "reusable", "reused",
-		"reclaimed", "responsible", "upcycling", "upcycled",
-		"sustainable", "sustainability",
-		"eco-conscious", "eco-friendly", "eco",
-		"environmentally conscious", "environmentally friendly", "earth-conscious", "planet-friendly",
-		"non-toxic",
-		"fair trade",
-		"zero-waste", "resource-efficient",
-		"clean energy", "energy efficient"
-	];
-
+function containsRecycleAndReuseKeyword(product) {
+	const recycleWords = [ "recycle", "recyclable", "recycled" ];
+	const reuseWords = [ "reuse", "reusable", "reused" ];
+	
 	// Generates a list of matching regexes to each keyword.
-	const keyWordRegexes = sustainableWords.map(word => {
+	const createRegexes = wordArray =>
+		wordArray.map(word => {
 		// Replace all matches of dashes '-' or whitespaces with regex pattern [-\s] 
 		// i.e. 'eco-friendly becomes eco[-\s]friendly, so eco friendly also matches
 		const pattern = word.toLowerCase().replace(/[-\s]/g, '[-\\s]?'); 
@@ -190,10 +178,16 @@ function containsSustainableKeyword(product) {
 		return new RegExp(`\\b${pattern}\\b`, 'i');
 	});
 
+	const recycleRegexes = createRegexes(recycleWords);
+	const reuseRegexes = createRegexes(reuseWords);
+
+	// Take the product object and turn it into a single string
 	// Replaces anything NOT a word character or whitespace (i.e. punctuation and underscores)
 	const combinedText = JSON.stringify(product).replace(/[^\w\s]|_/g, "").toLowerCase();
+
 	// Checks for matching regex in the product text
-	const hasKeyWords = keyWordRegexes.some(regex => regex.test(combinedText));
+	const hasRecycle = recycleRegexes.some(regex => regex.test(combinedText));
+	const hasReuse = reuseRegexes.some(regex => regex.test(combinedText));
 	
-	return hasKeyWords;
+	return { hasRecycle, hasReuse };
 }

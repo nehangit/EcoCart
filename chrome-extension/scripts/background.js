@@ -19,7 +19,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Handles the scraping for popup.js
  * @param {*} sendResponse 
- * @returns 
  */
 async function handleScrapeRequest(sendResponse) {
 	// If backend is current processing a request, then stop execution.
@@ -33,25 +32,42 @@ async function handleScrapeRequest(sendResponse) {
 
 	try {
 		const tab = await getActiveTab();
+
 		if (!isSupportedWebsite(tab.url)) {
 			throw new Error("This extension is not supported on this website.");
 		}
 		await injectContentScript(tab.id); // Inject the content script before sending a message
+		
 		const response = await sendScrapeMessage(tab.id) // Send message to scrape to content.js
-
 		// Bad response from content.js
 		if (!response || response.productData.name === null) { 
 			throw new Error("Could not retrieve product data. Please try again."); 
 		}
+		// Immediately send scraped data to popup.js to be used for the processing state
 		sendResponse({ success: true, data: response.productData});
 
-		// Tell popup to fill in data on product.
-		chrome.runtime.sendMessage({ action: "updateProduct", data: response.productData })
+		// Now send data to backend
+		try {
+			// Send data to backend and get the backend response. Will throw error if something goes wrong
+			const backendRes = await sendDataToBackend(response.productData); 
 
-		// Send data to backend
-		await sendDataToBackend(response.productData); // Will throw error if something goes wrong
-		console.log("Data successfully sent to backend.");
+			// When an error occurred in the backend 
+			if (backendRes.success === false) {
+				throw new Error(backendRes.message);
+			}
+
+			// Successful backend response so send message to popup to update to the success state
+			chrome.runtime.sendMessage({ 
+				action: "updateProduct", 
+				data: backendRes.sustainable, 
+				name: response.productData.name
+			});
+		} catch (backendError) {
+			// If there is a backend error, send message to popup to show error
+			chrome.runtime.sendMessage({ action: "backendError", message: backendError.message });
+		}
 	} catch(error) {
+		// If anything else fails (i.e. scraping or injection), notify popup of error through sendResponse
 		sendError(error.message);
 		sendResponse({ success: false, message: error.message });
 	} finally {
@@ -101,8 +117,14 @@ function injectContentScript(tabId) {
  * @returns {Promise<object>}
  */
 function sendScrapeMessage(tabId) {
-	return new Promise((resolve) => {
-		chrome.tabs.sendMessage(tabId, { action: "scrape" }, (response) => resolve(response));
+	return new Promise((resolve, reject) => {
+		chrome.tabs.sendMessage(tabId, { action: "scrape" }, (response) => {
+			if (chrome.runtime.lastError) {
+				console.error("sendScrapeMessage error:", chrome.runtime.lastError.message);
+				return reject(new Error(chrome.runtime.lastError.message));
+			}
+			resolve(response);
+		});
 	});
 }
 
@@ -118,7 +140,12 @@ async function sendDataToBackend(productData) {
 		// Asynchronous request to backend
 		const response = await fetch(url, {
 			method: "POST",
-			headers: {"Content-type": "application/json"}, // Set content type to JSON
+			mode : "cors",
+			credentials: "include",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Requested-With": "XMLHttpRequest" 
+			}, // Set content type to JSON
 			body: JSON.stringify(productData)
 		});
 
@@ -168,6 +195,6 @@ function notifyUser(message) {
  */
 function sendError(message) {
 	console.error(message);
-	notifyUser(message);
+	// notifyUser(message);
 	if (isProcessing) isProcessing = false;  // Allow requests again if there is an ongoing request
 }
