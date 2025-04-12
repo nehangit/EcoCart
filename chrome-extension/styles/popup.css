@@ -16,6 +16,7 @@ body {
 header {
 	background-color: white;
 	border: 1px solid #d4d4d4;
+	border-radius: 5px;
 	padding: 8px;
 }
 #header-text {
@@ -28,6 +29,7 @@ header {
 main {
 	background-color: white;
 	border: 1px solid #d4d4d4;
+	border-radius: 5px;
 	/* border: 1px solid #d4d4d4; */
 	font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
 
