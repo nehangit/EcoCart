@@ -20,7 +20,8 @@ current_dir = Path(__file__).resolve().parent
 # Create a relative path to dataset file
 dataset_path = current_dir.parent / "Full Dataset.xlsx"
 
-df = pd.read_excel(dataset_path)
+
+model_df = pd.read_excel(dataset_path)
 
 #df.dropna(inplace=True)
 
