@@ -17,8 +17,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
- * Handles the scraping for popup.js
- * @param {*} sendResponse 
+ * Handles scraping for popup.js
+ * @param {function} sendResponse 
  */
 async function handleScrapeRequest(sendResponse) {
 	// If backend is current processing a request, then stop execution.

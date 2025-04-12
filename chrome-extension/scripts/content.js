@@ -55,6 +55,15 @@ function scrapeAmazonProduct() {
 	product.recycled = hasRecycle;
 	product.reused = hasReuse;
 
+	// Get the wash and dry instruction keys for the product
+	if (product.facts["Care instructions"]) {
+		const { washInstruction, dryInstruction } = refineCareInstructions(product.facts["Care instructions"]);
+		product.washInstr = washInstruction;
+		product.dryInstr = dryInstruction;
+	} else {
+		product.washInstr, product.dryInstr = null;
+	}
+	
 	return product;
 }
 
@@ -191,3 +200,106 @@ function containsRecycleAndReuseKeyword(product) {
 	
 	return { hasRecycle, hasReuse };
 }
+
+/**
+ * Returns the str with escaped (treated literally) special regex characters
+ * @param {string} str 
+ * @returns {string}
+ */
+function escapeRegex(str) {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Creates a flexible regex from a care instruction. Allows for variations with -, _, \s
+ * @param {string} careInstruction 
+ * @returns {RegExp} 
+ */
+function makeFlexibleRegex(careInstruction) {
+	// Escape special regex characters
+	const escaped = escapeRegex(careInstruction);
+
+	// Replace one or more whitespaces with a pattern that allows spaces, dashes, or underscores
+	const flexiblePattern = escaped.replace(/\s+/g, '[-_\\s]+');
+
+	// Wrap the regex in word boundaries and make it case sensitive.
+	return new RegExp(`\\b${flexiblePattern}\\b`, 'i');
+}
+
+/**
+ * Looks at the text for matching care instructions to care instructions defined in the model.
+ * @param {string} text 
+ * @returns {object} An object that has two keys, a dry and wash instruction string.
+ */
+function refineCareInstructions(text) {
+	// The keys represent phrases that should map to a specified value
+	const washInstructionMap = [
+		{
+			keys: ["machine wash cold", "machine washable", "machine wash", "wash cold"],
+			value: "Machine wash_ cold"
+		},
+		{
+			keys: ["machine wash hot", "wash hot"],
+			value: "Machine wash_ hot"
+		},
+		{
+			keys: ["machine wash warm", "wash warm"],
+			value: "Machine wash_ warm"
+		},
+		{
+			keys: ["dry clean"],
+			value: "Dry clean"
+		},
+		{
+			keys: ["hand wash"],
+			value: "Hand wash"
+		}
+	];
+	const dryInstructionMap = [
+		{
+			keys: ["line dry", "air dry", "lay flat to dry"],
+			value: "Line dry"
+		},
+		{
+			keys: ["tumble dry low", "tumble dry", "dryer", "machine dry", "machine dryable"],
+			value: "Tumble dry_ low"
+		},
+		{
+			keys: ["tumble dry medium, tumble dry high"],
+			value: "Tumble dry_ medium"
+		},
+		{
+			keys: ["dry clean"],
+			value: "Dry clean"
+		}
+	];
+
+	let washInstruction = null;
+	let dryInstruction = null; 
+	
+	// Loop over each key(s)-value entry of washInstructionMap. 
+	// NOTE: This approach only finds the first wash instruction
+	for (const entry of washInstructionMap) {
+		// For each key of each entry
+		for (const key of entry.keys) {
+			const regex = makeFlexibleRegex(key);
+			if (regex.test(text)) {
+				washInstruction = entry.value;
+				break;
+			}
+		}
+	}
+	// Loop over each key(s)-value entry of dryInstructionMap. 
+	// NOTE: This approach only finds the first dry instruction
+	for (const entry of dryInstructionMap) {
+		// For each key of each entry
+		for (const key of entry.keys) {
+			const regex = makeFlexibleRegex(key);
+			if (regex.test(text)) {
+				dryInstruction = entry.value;
+				break;
+			}
+		}
+	}
+	return { washInstruction, dryInstruction };
+} 
