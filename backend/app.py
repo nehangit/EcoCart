@@ -26,7 +26,7 @@ model_df = pd.read_excel(dataset_path)
 
 # Extract Use_location options and calculate average Transportation_distance for filling
 use_locations = model_df['Use_location'].unique().tolist()
-avg_transportation_distance = model_df['Transportation_distance'].mean()
+avg_transportation_distance = model_df['Transporation_distance'].mean()
 
 #df.dropna(inplace=True)
 
@@ -251,24 +251,14 @@ def add_to_dataframe(data):
         if fabric in columns:
             new_row[fabric] = percentage
 
-    # Fill in Use_location from data if available, otherwise pick random location from training data
-    if data.get('facts') and data['facts'].get('Use location'):
-        new_row['Use_location'] = data['facts']['Use location']
-    elif use_locations:
-        new_row['Use_location'] = random.choice(use_locations)
+    # Fill in Use_location from pick random location from training data
+    new_row['Use_location'] = random.choice(use_locations)
     
-    # Fill in Transportation_distance from data if available, otherwise use average from training data
-    if data.get('facts') and data['facts'].get('Transportation distance'):
-        try:
-            new_row['Transportation_distance'] = float(data['facts']['Transportation distance'])
-        except (ValueError, TypeError):
-            # If conversion fails, use average
-            new_row['Transportation_distance'] = avg_transportation_distance
-    else:
-        new_row['Transportation_distance'] = avg_transportation_distance
+    # Fill in Transportation_distance from average from training data
+    new_row['Transportation_distance'] = avg_transportation_distance
     
     # Add new row to the existing DataFrame
-    new_df = pd.DataFrame([new_row], dtype='float64')
+    new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
     return new_row
 
@@ -308,8 +298,9 @@ def receive_data():
 
         new_row = add_to_dataframe(data)
         
+        new_row_df = pd.DataFrame(new_row)
         #train the data in new row
-        X_new = new_row.iloc[:, :-1]
+        X_new = new_row_df.iloc[:, :-1]
         result_value = best_model.predict(X_new)
         
         if result_value <= 3:
@@ -329,6 +320,82 @@ def receive_data():
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/test-data', methods=['GET', 'POST'])
+def test_data():
+    """Test endpoint that runs sample data through the pipeline using the same logic as receive-data"""
+    try:
+        # If POST method is used, use the provided test data
+        if request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({"success": False, "message": "No test data provided."}), 400
+        else:
+            # Default test data for GET requests
+            data = {
+                "facts": {
+                    "Fabric type": "60% Cotton, 40% Polyester",
+                }
+            }
+        
+        print("Processing test data:", data)
+        
+        # Use the same logic as the receive-data endpoint
+        new_row = add_to_dataframe(data)
+        
+        new_row_df = pd.DataFrame([new_row])
+        # Train the data in new row
+        X_new = new_row_df.iloc[:, :-1]
+        result_value = best_model.predict(X_new)
+        
+        if result_value <= 3:
+            result = False
+        else:
+            result = True
+            
+        if not new_row:
+            return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
+
+        return jsonify({
+            "success": True, 
+            "message": "Test data processed",
+            "sustainable": result,
+            "dataframe": df[columns].to_dict(orient="records"), 
+            "new_entry": new_row
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in test endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e), "traceback": traceback.format_exc()}), 500
+    
+# Add an endpoint to test different fabric compositions
+@app.route('/test-fabrics', methods=['GET'])
+def test_fabrics():
+    """Test endpoint that runs different fabric compositions through the parser"""
+    test_fabrics = [
+        "100% Cotton",
+        "80% Polyester, 20% Spandex",
+        "Body: 70% Cotton, 30% Polyester; Lining: 100% Cotton",
+        "Cotton, Polyester",  # No percentages
+        "Shell: 95% Organic_cotton, 5% Elastane; Lining: 100% Cotton"
+    ]
+    
+    results = []
+    for fabric in test_fabrics:
+        part_compositions = parse_fabric_string(fabric)
+        averaged = average_fabric_compositions(part_compositions)
+        results.append({
+            "original": fabric,
+            "parsed_parts": part_compositions,
+            "averaged": averaged
+        })
+    
+    return jsonify({
+        "success": True,
+        "fabric_test_results": results
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=True)  
