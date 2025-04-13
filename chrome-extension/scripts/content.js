@@ -29,7 +29,10 @@ function scrapeAmazonProduct() {
 
 	// Get product name 
 	product.name = document.getElementById("productTitle")?.textContent.trim() || null;
-
+	
+	// Get clothing type
+	product.type = (product.name) ? getClothingType(product.name) : null;
+	
 	// Get brand name 
 	let brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
 	product.brand = (brand) ? brand.replace(/^(?:Brand:\s*|Visit the )?(.*?)(?: Store)?$/i, "$1").trim() : null;
@@ -40,13 +43,13 @@ function scrapeAmazonProduct() {
 	// Get the "About this item" section
 	product.about = getAboutSection();
 
-	// Get the "Product Description" section
-	let descriptionEle = document.querySelector("#productDescription span");
-	product.description = descriptionEle?.textContent.trim() || null;
-
 	// Get the feature bullets section. Section rarely appears and usually only when the other info sections are missing
 	product.featureBullets = getFeatureBullets();
 	if (product.featureBullets) fillInInfoFromFeatureBullets(product.featureBullets, product);
+
+	// Get the "Product Description" section
+	let descriptionEle = document.querySelector("#productDescription span");
+	product.description = descriptionEle?.textContent.trim() || null;
 
 	// TODO Check for a sustainable features section (if there is time).
 
@@ -61,7 +64,8 @@ function scrapeAmazonProduct() {
 		product.washInstr = washInstruction;
 		product.dryInstr = dryInstruction;
 	} else {
-		product.washInstr, product.dryInstr = null;
+		product.washInstr = null;
+		product.dryInstr = null;
 	}
 	
 	return product;
@@ -211,95 +215,106 @@ function escapeRegex(str) {
 }
 
 /**
- * Creates a flexible regex from a care instruction. Allows for variations with -, _, \s
- * @param {string} careInstruction 
+ * Creates a flexible regex from some text. Allows for variations with -, _, \s
+ * @param {string} text 
  * @returns {RegExp} 
  */
-function makeFlexibleRegex(careInstruction) {
+function makeFlexibleRegex(text) {
 	// Escape special regex characters
-	const escaped = escapeRegex(careInstruction);
+	const escaped = escapeRegex(text);
 
 	// Replace one or more whitespaces with a pattern that allows spaces, dashes, or underscores
 	const flexiblePattern = escaped.replace(/\s+/g, '[-_\\s]+');
 
-	// Wrap the regex in word boundaries and make it case sensitive.
-	return new RegExp(`\\b${flexiblePattern}\\b`, 'i');
+	// Determin the correct plural suffix
+	let suffix;
+	if (/(ch|sh|[sxz]|ss)$/i.test(text)) {
+    suffix = "(?:es)?";
+  } else {
+    suffix = "(?:s)?";
+  }
+
+	// Wrap the regex in word boundaries and make it case sensitive. Optional suffix for plurals
+	return new RegExp(`\\b${flexiblePattern}${suffix}\\b`, 'i');
+}
+
+/**
+ * Returns the first match for a given mapping
+ * @param {Array<object>} mapping - An array where each object has property "keys" and a "value"
+ * @param {string} text - Input text to search for a match from
+ * @returns {string|null} The value of the first matched entry or null if no matches were found.
+ */
+function getMatches(mapping, text) {
+	// Loop over each key(s)-value entry of the mapping
+	for (const entry of mapping) {
+		for (const key of entry.keys) {
+			const regex = makeFlexibleRegex(key);
+			if (regex.test(text)){
+				return entry.value; // NOTE: This approach only finds the first wash instruction
+			}
+		}
+	}
+	return null;
 }
 
 /**
  * Looks at the text for matching care instructions to care instructions defined in the model.
- * @param {string} text 
+ * @param {string} careInstructionText 
  * @returns {object} An object that has two keys, a dry and wash instruction string.
  */
-function refineCareInstructions(text) {
+function refineCareInstructions(careInstructionText) {
 	// The keys represent phrases that should map to a specified value
 	const washInstructionMap = [
-		{
-			keys: ["machine wash cold", "machine washable", "machine wash", "wash cold"],
-			value: "Machine wash_ cold"
-		},
-		{
-			keys: ["machine wash hot", "wash hot"],
-			value: "Machine wash_ hot"
-		},
-		{
-			keys: ["machine wash warm", "wash warm"],
-			value: "Machine wash_ warm"
-		},
-		{
-			keys: ["dry clean"],
-			value: "Dry clean"
-		},
-		{
-			keys: ["hand wash"],
-			value: "Hand wash"
-		}
+		{ keys: ["machine wash cold", "machine washable", "machine wash", "wash cold"], value: "Machine wash_ cold" },
+		{ keys: ["machine wash hot", "wash hot"], value: "Machine wash_ hot" },
+		{ keys: ["machine wash warm", "wash warm"], value: "Machine wash_ warm" },
+		{ keys: ["dry clean"], value: "Dry clean" },
+		{ keys: ["hand wash"], value: "Hand wash"}
 	];
 	const dryInstructionMap = [
-		{
-			keys: ["line dry", "air dry", "lay flat to dry"],
-			value: "Line dry"
-		},
-		{
-			keys: ["tumble dry low", "tumble dry", "dryer", "machine dry", "machine dryable"],
-			value: "Tumble dry_ low"
-		},
-		{
-			keys: ["tumble dry medium, tumble dry high"],
-			value: "Tumble dry_ medium"
-		},
-		{
-			keys: ["dry clean"],
-			value: "Dry clean"
-		}
+		{ keys: ["line dry", "air dry", "lay flat to dry"], value: "Line dry" },
+		{ keys: ["tumble dry low", "tumble dry", "dryer", "machine dry", "machine dryable"], value: "Tumble dry_ low"}, 
+		{ keys: ["tumble dry medium, tumble dry high"], value: "Tumble dry_ medium" },
+		{ keys: ["dry clean"], value: "Dry clean" }
 	];
 
-	let washInstruction = null;
-	let dryInstruction = null; 
+	let washInstruction = getMatches(washInstructionMap, careInstructionText);
+	let dryInstruction = getMatches(dryInstructionMap, careInstructionText); 
 	
-	// Loop over each key(s)-value entry of washInstructionMap. 
-	// NOTE: This approach only finds the first wash instruction
-	for (const entry of washInstructionMap) {
-		// For each key of each entry
-		for (const key of entry.keys) {
-			const regex = makeFlexibleRegex(key);
-			if (regex.test(text)) {
-				washInstruction = entry.value;
-				break;
-			}
-		}
-	}
-	// Loop over each key(s)-value entry of dryInstructionMap. 
-	// NOTE: This approach only finds the first dry instruction
-	for (const entry of dryInstructionMap) {
-		// For each key of each entry
-		for (const key of entry.keys) {
-			const regex = makeFlexibleRegex(key);
-			if (regex.test(text)) {
-				dryInstruction = entry.value;
-				break;
-			}
-		}
-	}
 	return { washInstruction, dryInstruction };
 } 
+
+function getClothingType(productName) {
+	// Entries are arbitrarily ranked by specificity. This is NOT an exhaustive list.
+	const typeKeywords = [
+		{ keys: ["blouse"], 
+			value: "blouse" },
+		{ keys: ["jeans", "denim"], 
+			value: "jeans" },
+		{ keys: [
+				"jacket", "blazer", "windbreaker", "parka", "anorak",
+				"coat", "overcoat", "trench coat",
+				"hoodie", "hooded sweatshirt", "sweatshirt",
+				"vest", "suit", "business suit", "blazer suit", "tuxedo"
+			], 
+			value: "jacket" },
+		{ keys: ["skirt", "miniskirt", "maxiskirt"], 
+			value: "skirt" },
+		{ keys: ["sweater", "jumper", "cardigan"], 
+			value: "sweater" },
+		{ keys: ["dress", "gown", "dress", "one-piece", "jumpsuit", "overalls"], 
+			value: "dress" },
+		{ keys: ["t-shirt", "tshirt", "tee", "tee shirt", "graphic tee", "v-neck tee",
+			"tank top", "sleeveless top"],
+			value: "t‑shirt" },
+		{ keys: ["shirt", "button-down shirt", "button up", "collared shirt", "dress shirt"], 
+			value: "shirt" },
+		{ keys: ["trousers", "pants", "slacks", "leggings", "sweatpants", "jogger"], 
+			value: "trousers" },
+		{ keys: ["short", "cutoffs"], 
+			value: "short" },
+	];
+	let type = getMatches(typeKeywords, productName);
+	if (!type) type = "shirt"; // If no matches are found just default to "shirt"
+	return type;
+}
