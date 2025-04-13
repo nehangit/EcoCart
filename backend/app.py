@@ -352,7 +352,7 @@ def add_to_dataframe(data):
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
-    return new_row
+    return df
 
 @app.route('/')
 def hello_world():
@@ -367,10 +367,7 @@ def receive_data():
         if not data:
             return jsonify({"success": False, "message": "No data received."}), 400
         
-        new_row = add_to_dataframe(data)
-
-        if not new_row:
-            return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
+        updated_df = add_to_dataframe(data)
 
         return jsonify({
             "success": True, 
