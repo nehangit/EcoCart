@@ -79,10 +79,10 @@ CORS(app, resources={
 #     return response
 
 columns = [
-    'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
+    'Type', 'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
     'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Recycled_content', 'Reused_content',
-    'Manufacturing_location', 'Transportation_distance', 'Use_location'
+    'Manufacturing_location', 'Transportation_distance', 'Use_location', 'Washing_instruction' , 'Drying_instruction'
 ]
 df = pd.DataFrame(columns=columns)
 
@@ -298,6 +298,11 @@ def get_continent_from_origin(data):
         return np.nan
     return np.nan
 
+def find_average(column):
+    df_non_zero = model_df[column].replace(0, np.nan)
+    average = df_non_zero.mean()
+    return average
+
 def add_to_dataframe(data):
     global df
     # Initialize all values to 0.0
@@ -316,6 +321,9 @@ def add_to_dataframe(data):
     for fabric, percentage in averaged_compositions:
         if fabric in columns:
             new_row[fabric] = percentage
+    
+    # Fill in type
+    new_row['Type'] = data.get("Type")
 
     # Fill in Use_location from pick random location from training data
     new_row['Use_location'] = random.choice(use_locations)
@@ -327,7 +335,19 @@ def add_to_dataframe(data):
     continent = get_continent_from_origin(data)
     new_row["Manufacturing_location"] = continent
 
-    #Filling in Recycled and Reused contents
+    # Filling in Recycled content
+    if data.get('recycled') == True:
+        new_row["Recycled_content"] = find_average('Recycled_content')
+
+    # Filling in Reused content
+    if data.get('reused') == True:
+        new_row['Reused_content'] = find_average("Reused_content")
+
+    # Fill in washing instruction
+    new_row["Washing_instruction"] = data.get('Washing_instruction')
+
+    # Fill in drying instruction
+    new_row["Drying_instructioin"] = data.get('Drying_instruction')
 
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
