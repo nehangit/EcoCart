@@ -71,13 +71,6 @@ CORS(app, resources={
     }
 })
 
-# Additional headers to ensure compatibility
-# @app.after_request
-# def after_request(response):
-#     response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     return response
-
 columns = [
     'Type', 'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
@@ -367,16 +360,14 @@ def receive_data():
         if not data:
             return jsonify({"success": False, "message": "No data received."}), 400
         
-        new_row = add_to_dataframe(data)
-
-        predict_df = pd.DataFrame([new_row])
+        predict_df = add_to_dataframe(data)
         result_value = best_model.predict(predict_df)
         if result_value >=3:
             result = True
         else:
             result=False
             
-        if not new_row:
+        if predict_df is None:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
