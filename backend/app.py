@@ -355,7 +355,7 @@ def receive_data():
         return jsonify({
             "success": True, 
             "message": "Data received",
-            "sustainable": True
+            "sustainable": False
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
