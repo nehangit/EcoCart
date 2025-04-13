@@ -352,7 +352,7 @@ def add_to_dataframe(data):
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
-    return new_row
+    return df
 
 @app.route('/')
 def hello_world():
