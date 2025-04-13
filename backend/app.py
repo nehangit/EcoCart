@@ -369,8 +369,8 @@ def receive_data():
         
         new_row = add_to_dataframe(data)
 
-        predict_df = pd.DataFrame([new_row])
-        result_value = best_model.predict(predict_df)
+        
+        result_value = best_model.predict(new_row.values.reshape(1, -1))[0]
         if result_value >=3:
             result = True
         else:
