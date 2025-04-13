@@ -369,13 +369,20 @@ def receive_data():
         
         new_row = add_to_dataframe(data)
 
+        predict_df = pd.DataFrame([new_row])
+        result_value = best_model.predict(predict_df)
+        if result_value >=3:
+            result = True
+        else:
+            result=False
+            
         if not new_row:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
             "success": True, 
             "message": "Data received",
-            "sustainable": False
+            "sustainable": result
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
