@@ -71,13 +71,6 @@ CORS(app, resources={
     }
 })
 
-# Additional headers to ensure compatibility
-# @app.after_request
-# def after_request(response):
-#     response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     return response
-
 columns = [
     'Type', 'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
@@ -347,12 +340,12 @@ def add_to_dataframe(data):
     new_row["Washing_instruction"] = data.get('Washing_instruction')
 
     # Fill in drying instruction
-    new_row["Drying_instructioin"] = data.get('Drying_instruction')
+    new_row["Drying_instruction"] = data.get('Drying_instruction')
 
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
-    return new_row
+    return df
 
 @app.route('/')
 def hello_world():
@@ -371,12 +364,14 @@ def receive_data():
 
         
         result_value = best_model.predict(new_row.values.reshape(1, -1))[0]
+        predict_df = add_to_dataframe(data)
+        result_value = best_model.predict(predict_df)
         if result_value >=3:
             result = True
         else:
             result=False
             
-        if not new_row:
+        if predict_df is None:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
