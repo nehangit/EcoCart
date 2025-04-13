@@ -372,7 +372,9 @@ def hello_world():
     return 'Hello World!'
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
-def receive_data():    
+def receive_data():  
+    if request.method == "OPTIONS":
+        return '', 200  
     try:
         data = request.get_json() # Extract JSON from request
         print(data)
