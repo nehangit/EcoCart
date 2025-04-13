@@ -29,14 +29,17 @@ use_locations = model_df['Use_location'].unique().tolist()
 avg_transportation_distance = model_df['Transporation_distance'].mean()
 
 #df.dropna(inplace=True)
-
 model_df['Type'] = LabelEncoder().fit_transform(model_df['Type'])
 model_df['Manufacturing_location'] = LabelEncoder().fit_transform(model_df['Manufacturing_location'])
 model_df['Use_location'] = LabelEncoder().fit_transform(model_df['Use_location'])
 model_df['Drying_instruction'] = LabelEncoder().fit_transform(model_df['Drying_instruction'])
 model_df['Washing_instruction'] = LabelEncoder().fit_transform(model_df['Washing_instruction'])
 
+# print(model_df.columns)
 X = model_df.iloc[:,:-1]
+# print(X.columns)
+X = X.drop(X.columns[0], axis=1)
+# print(X.columns)
 y = model_df.iloc[:,-1]
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -75,7 +78,8 @@ columns = [
     'Type', 'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
     'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Recycled_content', 'Reused_content',
-    'Manufacturing_location', 'Transportation_distance', 'Use_location', 'Washing_instruction' , 'Drying_instruction'
+    'Material_label', 'Chemicals_label', 'Production_label', 'Manufacturing_location', 'Transporation_distance', 'Use_location', 
+    'Washing_instruction' , 'Drying_instruction', 'Reusability_label', 'Recylability_label'
 ]
 df = pd.DataFrame(columns=columns)
 
@@ -299,7 +303,7 @@ def find_average(column):
 def add_to_dataframe(data):
     global df
     # Initialize all values to 0.0
-    new_row = {col: 0.0 for col in columns}
+    new_row = {col: None for col in columns}
 
     if not data.get('facts') or not data['facts'].get('Fabric type'):
         return None
@@ -322,7 +326,7 @@ def add_to_dataframe(data):
     new_row['Use_location'] = random.choice(use_locations)
     
     # Fill in Transportation_distance from average from training data
-    new_row['Transportation_distance'] = avg_transportation_distance
+    new_row['Transporation_distance'] = avg_transportation_distance
     
     # Fill in Manufacturing_location with a continent from map
     continent = get_continent_from_origin(data)
@@ -331,21 +335,37 @@ def add_to_dataframe(data):
     # Filling in Recycled content
     if data.get('recycled') == True:
         new_row["Recycled_content"] = find_average('Recycled_content')
+        new_row['Recylability_label'] = 1
+    else:
+        new_row["Recycled_content"] = 0.0
+        new_row['Recylability_label'] = 0
 
     # Filling in Reused content
     if data.get('reused') == True:
         new_row['Reused_content'] = find_average("Reused_content")
+        new_row['Reusability_label'] = 1
+    else:
+        new_row['Reused_content'] = 0.0
+        new_row['Reusability_label'] = 0
 
     # Fill in washing instruction
     new_row["Washing_instruction"] = data.get('Washing_instruction')
 
     # Fill in drying instruction
-    new_row["Drying_instruction"] = data.get('Drying_instruction')
+    if data.get("Drying_instruction") == None:
+        new_row["Drying_instruction"] = "Line dry"
+    else:
+        new_row["Drying_instruction"] = data.get("Drying_instruction")
+
+
+    new_row['Material_label'] = 0
+    new_row['Chemicals_label'] = 0
+    new_row['Production_label'] = 0
 
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
-    return df
+    return new_df
 
 @app.route('/')
 def hello_world():
@@ -361,17 +381,24 @@ def receive_data():
             return jsonify({"success": False, "message": "No data received."}), 400
         
         new_row = add_to_dataframe(data)
+        print(new_row.columns)
 
-        
+        new_row['Type'] = LabelEncoder().fit_transform(new_row['Type'])
+        new_row['Manufacturing_location'] = LabelEncoder().fit_transform(new_row['Manufacturing_location'])
+        new_row['Use_location'] = LabelEncoder().fit_transform(new_row['Use_location'])
+        new_row['Drying_instruction'] = LabelEncoder().fit_transform(new_row['Drying_instruction'])
+        new_row['Washing_instruction'] = LabelEncoder().fit_transform(new_row['Washing_instruction'])
+
+        print("here 1")
         result_value = best_model.predict(new_row.values.reshape(1, -1))[0]
-        predict_df = add_to_dataframe(data)
-        result_value = best_model.predict(predict_df)
-        if result_value >=3:
+        print("here 2")
+        
+        if result_value >=4:
             result = True
         else:
             result=False
             
-        if predict_df is None:
+        if new_row is None:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
@@ -380,6 +407,7 @@ def receive_data():
             "sustainable": result
         }), 200
     except Exception as e:
+        print(e)
         return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == '__main__':
