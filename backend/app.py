@@ -81,9 +81,39 @@ CORS(app, resources={
 columns = [
     'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
-    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Use_location', 'Transportation_distance'
+    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Manufacturing_location', 'Use_location', 'Transportation_distance'
 ]
 df = pd.DataFrame(columns=columns)
+
+country_to_continent = {
+    "United States": "North America",
+    "USA": "North America",
+    "Canada": "North America",
+    "Mexico": "North America",
+    "China": "Asia",
+    "India": "Asia",
+    "Japan": "Asia",
+    "South Korea": "Asia",
+    "Vietnam": "Asia",
+    "Bangladesh": "Asia",
+    "Italy": "Europe",
+    "France": "Europe",
+    "Germany": "Europe",
+    "Spain": "Europe",
+    "United Kingdom": "Europe",
+    "UK": "Europe",
+    "Portugal": "Europe",
+    "Turkey": "Europe",
+    "Brazil": "South America",
+    "Argentina": "South America",
+    "Colombia": "South America",
+    "Peru": "South America",
+    "Egypt": "Africa",
+    "Nigeria": "Africa",
+    "South Africa": "Africa",
+    "Australia": "Australia",
+    # Add more countries and their continents as needed
+}
 
 def parse_fabric_string(fabric_string):
     """Parse a single fabric composition string"""
@@ -231,9 +261,28 @@ def average_fabric_compositions(part_compositions):
     
     return averaged_compositions
 
-def add_to_dataframe(data):
-    global df, use_locations, avg_transportation_distance
+def get_continent_from_origin(data):
+    """Parses origin data and returns the continent or NaN."""
+    country = None
+    if 'Origin' in data['facts']:
+        origin_value = data['facts']['Origin']
+        if isinstance(origin_value, str) and origin_value.lower() != 'imported':
+            country = origin_value.strip()
+        elif isinstance(origin_value, list) and origin_value and origin_value[0].lower() != 'imported':
+            country = origin_value[0].strip()
+    elif 'Country of origin' in data['facts']:
+        country_origin_value = data['facts']['Country of origin']
+        if isinstance(country_origin_value, str) and country_origin_value.lower() != 'imported':
+            country = country_origin_value.strip()
+        elif isinstance(country_origin_value, list) and country_origin_value and country_origin_value[0].lower() != 'imported':
+            country = country_origin_value[0].strip()
 
+    if country:
+        return country_to_continent.get(country, np.nan)
+    return np.nan
+
+def add_to_dataframe(data):
+    global df
     # Initialize all values to 0.0
     new_row = {col: 0.0 for col in columns}
 
@@ -245,7 +294,7 @@ def add_to_dataframe(data):
     
     # Average the percentages for the same fabrics across different parts
     averaged_compositions = average_fabric_compositions(part_compositions)
-    
+
     # Fill in the averaged percentages
     for fabric, percentage in averaged_compositions:
         if fabric in columns:
@@ -257,6 +306,10 @@ def add_to_dataframe(data):
     # Fill in Transportation_distance from average from training data
     new_row['Transportation_distance'] = avg_transportation_distance
     
+    # Fill in Manufacturing_location with a continent from map
+    continent = get_continent_from_origin(data)
+    new_row["Manufacturing_location"] = continent
+
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
@@ -268,7 +321,7 @@ def hello_world():
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
 def receive_data():
-    if request.method == "OPTIONS":
+    # if request.method == "OPTIONS":
     #     # Respond to preflight request with correct CORS headers
     #     response = jsonify({"message": "CORS preflight successful"})
     #     allowed_origins = ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"]
@@ -276,128 +329,26 @@ def receive_data():
     #     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
     #     response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
     #     response.headers.set('Access-Control-Allow-Credentials', 'true')
-        return '', 200 # Preflight successful     
-    
-    global df
+    #     return '', 200 # Preflight successful     
     try:
         data = request.get_json() # Extract JSON from request
-        # print(data)
+        print(data)
 
         if not data:
             return jsonify({"success": False, "message": "No data received."}), 400
         
-        # Hey Brian Im not sure how exactly youre working with the product. This caused 
-        # an INTERNAL SERVER ERROR so I commented it out and replaced it with whats below
-
-        # #Create a new df
-        # results = []
-        # for product in data:
-        #     new_row = add_to_dataframe(product)
-        #     if new_row:
-        #         results.append(new_row)
-
-        new_row_df = add_to_dataframe(data)
-        print("here")
-        # new_row_df = pd.DataFrame(new_row)
-        
-        #train the data in new row
-        # X_new = new_row_df
-        print("here 2")
-        # result_value = best_model.predict(X_new)
-        print("here 3")
-        # if result_value <= 3:
-        #     result = False
-        # else:
-        #     result = True
-          
-        if not new_row_df:
-            return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
-
-        return jsonify({
-            "success": True, 
-            "message": "Data received",
-            "sustainable": True, #result,#
-            "dataframe": df[columns].to_dict(orient="records")
-            # "new_entry": new_row
-        }), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@app.route('/test-data', methods=['GET', 'POST'])
-def test_data():
-    """Test endpoint that runs sample data through the pipeline using the same logic as receive-data"""
-    try:
-        # If POST method is used, use the provided test data
-        if request.method == 'POST':
-            data = request.get_json()
-            if not data:
-                return jsonify({"success": False, "message": "No test data provided."}), 400
-        else:
-            # Default test data for GET requests
-            data = {
-                "facts": {
-                    "Fabric type": "60% Cotton, 40% Polyester",
-                }
-            }
-        
-        print("Processing test data:", data)
-        
-        # Use the same logic as the receive-data endpoint
         new_row = add_to_dataframe(data)
-        
-        new_row_df = pd.DataFrame([new_row])
-        # Train the data in new row
-        X_new = new_row_df.iloc[:, :-1]
-        result_value = best_model.predict(X_new)
-        
-        if result_value <= 3:
-            result = False
-        else:
-            result = True
-            
+
         if not new_row:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
             "success": True, 
-            "message": "Test data processed",
-            "sustainable": result,
-            "dataframe": df[columns].to_dict(orient="records"), 
-            "new_entry": new_row
+            "message": "Data received",
+            "sustainable": True
         }), 200
-        
     except Exception as e:
-        print(f"Error in test endpoint: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"success": False, "message": str(e), "traceback": traceback.format_exc()}), 500
-    
-# Add an endpoint to test different fabric compositions
-@app.route('/test-fabrics', methods=['GET'])
-def test_fabrics():
-    """Test endpoint that runs different fabric compositions through the parser"""
-    test_fabrics = [
-        "100% Cotton",
-        "80% Polyester, 20% Spandex",
-        "Body: 70% Cotton, 30% Polyester; Lining: 100% Cotton",
-        "Cotton, Polyester",  # No percentages
-        "Shell: 95% Organic_cotton, 5% Elastane; Lining: 100% Cotton"
-    ]
-    
-    results = []
-    for fabric in test_fabrics:
-        part_compositions = parse_fabric_string(fabric)
-        averaged = average_fabric_compositions(part_compositions)
-        results.append({
-            "original": fabric,
-            "parsed_parts": part_compositions,
-            "averaged": averaged
-        })
-    
-    return jsonify({
-        "success": True,
-        "fabric_test_results": results
-    }), 200
+        return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)  

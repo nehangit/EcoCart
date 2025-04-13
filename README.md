@@ -1,4 +1,7 @@
-# team8-dev-ada
+# EcoCart - Dev Ada Team 8 Project
+
+A browser extension that uses supervised learning and scraping to determine sustainability of online (clothing) shopping items.
+
 To install the extension, 
   1) Go to chrome://extensions/ and turn on developer mode in the top right.
   3) Download the extension folder from this repository.
