@@ -31,7 +31,7 @@ function scrapeAmazonProduct() {
 	product.name = document.getElementById("productTitle")?.textContent.trim() || null;
 	
 	// Get clothing type
-	product.type = (product.name) ? getClothingType(product.name) : null;
+	product.Type = (product.name) ? getClothingType(product.name) : null;
 	
 	// Get brand name 
 	let brand = document.getElementById("bylineInfo")?.textContent.trim() || null;
@@ -51,8 +51,6 @@ function scrapeAmazonProduct() {
 	let descriptionEle = document.querySelector("#productDescription span");
 	product.description = descriptionEle?.textContent.trim() || null;
 
-	// TODO Check for a sustainable features section (if there is time).
-
 	// Checks for "recycle" and "reuse" keywords and adds these values to product
 	const { hasRecycle, hasReuse } = containsRecycleAndReuseKeyword(product);
 	product.recycled = hasRecycle;
@@ -61,11 +59,11 @@ function scrapeAmazonProduct() {
 	// Get the wash and dry instruction keys for the product
 	if (product.facts["Care instructions"]) {
 		const { washInstruction, dryInstruction } = refineCareInstructions(product.facts["Care instructions"]);
-		product.washInstr = washInstruction;
-		product.dryInstr = dryInstruction;
+		product.Washing_instruction = washInstruction;
+		product.Drying_instruction = dryInstruction;
 	} else {
-		product.washInstr = null;
-		product.dryInstr = null;
+		product.Washing_instruction = null;
+		product.Drying_instruction = null;
 	}
 	
 	return product;
@@ -227,13 +225,8 @@ function makeFlexibleRegex(text) {
 	const flexiblePattern = escaped.replace(/\s+/g, '[-_\\s]+');
 
 	// Determin the correct plural suffix
-	let suffix;
-	if (/(ch|sh|[sxz]|ss)$/i.test(text)) {
-    suffix = "(?:es)?";
-  } else {
-    suffix = "(?:s)?";
-  }
-
+	const suffix = (/(ch|sh|[sxz]|ss)$/i.test(text)) ? "(?:es)?" : "(?:s)?";
+  
 	// Wrap the regex in word boundaries and make it case sensitive. Optional suffix for plurals
 	return new RegExp(`\\b${flexiblePattern}${suffix}\\b`, 'i');
 }
@@ -247,6 +240,7 @@ function makeFlexibleRegex(text) {
 function getMatches(mapping, text) {
 	// Loop over each key(s)-value entry of the mapping
 	for (const entry of mapping) {
+		// Then over each key in the entry
 		for (const key of entry.keys) {
 			const regex = makeFlexibleRegex(key);
 			if (regex.test(text)){
@@ -278,15 +272,21 @@ function refineCareInstructions(careInstructionText) {
 		{ keys: ["dry clean"], value: "Dry clean" }
 	];
 
-	let washInstruction = getMatches(washInstructionMap, careInstructionText);
-	let dryInstruction = getMatches(dryInstructionMap, careInstructionText); 
+	const washInstruction = getMatches(washInstructionMap, careInstructionText);
+	const dryInstruction = getMatches(dryInstructionMap, careInstructionText); 
 	
 	return { washInstruction, dryInstruction };
 } 
 
+/**
+ * Looks at the input string (i.e. product name) and checks for which type of clothing it is,
+ * mapping it to the labels used in the model.
+ * @param {string} productName 
+ * @returns {string}
+ */
 function getClothingType(productName) {
 	// Entries are arbitrarily ranked by specificity. This is NOT an exhaustive list.
-	const typeKeywords = [
+	const typeMap = [
 		{ keys: ["blouse"], 
 			value: "blouse" },
 		{ keys: ["jeans", "denim"], 
@@ -314,7 +314,7 @@ function getClothingType(productName) {
 		{ keys: ["short", "cutoffs"], 
 			value: "short" },
 	];
-	let type = getMatches(typeKeywords, productName);
+	let type = getMatches(typeMap, productName);
 	if (!type) type = "shirt"; // If no matches are found just default to "shirt"
 	return type;
 }
