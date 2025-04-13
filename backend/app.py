@@ -268,7 +268,7 @@ def hello_world():
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
 def receive_data():
-    # if request.method == "OPTIONS":
+    if request.method == "OPTIONS":
     #     # Respond to preflight request with correct CORS headers
     #     response = jsonify({"message": "CORS preflight successful"})
     #     allowed_origins = ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"]
@@ -276,12 +276,12 @@ def receive_data():
     #     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
     #     response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
     #     response.headers.set('Access-Control-Allow-Credentials', 'true')
-    #     return '', 200 # Preflight successful     
+        return '', 200 # Preflight successful     
     
     global df
     try:
         data = request.get_json() # Extract JSON from request
-        print(data)
+        # print(data)
 
         if not data:
             return jsonify({"success": False, "message": "No data received."}), 400
@@ -296,27 +296,29 @@ def receive_data():
         #     if new_row:
         #         results.append(new_row)
 
-        new_row = add_to_dataframe(data)
+        new_row_df = add_to_dataframe(data)
+        print("here")
+        # new_row_df = pd.DataFrame(new_row)
         
-        new_row_df = pd.DataFrame(new_row)
         #train the data in new row
-        X_new = new_row_df.iloc[:, :-1]
-        result_value = best_model.predict(X_new)
-        
-        if result_value <= 3:
-            result = False
-        else:
-            result = True
-            
-        if not new_row:
+        # X_new = new_row_df
+        print("here 2")
+        # result_value = best_model.predict(X_new)
+        print("here 3")
+        # if result_value <= 3:
+        #     result = False
+        # else:
+        #     result = True
+          
+        if not new_row_df:
             return jsonify({"success": False, "message": "Unable to add product to dataframe."}), 400
 
         return jsonify({
             "success": True, 
             "message": "Data received",
-            "sustainable": result,
-            "dataframe": df[columns].to_dict(orient="records"), 
-            "new_entry": new_row
+            "sustainable": True, #result,#
+            "dataframe": df[columns].to_dict(orient="records")
+            # "new_entry": new_row
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
