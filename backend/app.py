@@ -340,7 +340,7 @@ def add_to_dataframe(data):
     new_row["Washing_instruction"] = data.get('Washing_instruction')
 
     # Fill in drying instruction
-    new_row["Drying_instructioin"] = data.get('Drying_instruction')
+    new_row["Drying_instruction"] = data.get('Drying_instruction')
 
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
