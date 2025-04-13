@@ -300,7 +300,7 @@ def receive_data():
         
         new_row_df = pd.DataFrame(new_row)
         #train the data in new row
-        X_new = new_row_df.iloc[:, :-1]
+        X_new = new_row_df
         result_value = best_model.predict(X_new)
         
         if result_value <= 3:
