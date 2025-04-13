@@ -81,38 +81,52 @@ CORS(app, resources={
 columns = [
     'Cotton', 'Organic_cotton', 'Linen', 'Hemp', 'Jute', 'Other_plant', 'Silk', 'Wool', 'Leather', 'Camel', 'Cashmere',
     'Alpaca', 'Feathers', 'Other_animal', 'Polyester', 'Nylon', 'Acrylic', 'Spandex', 'Elastane', 'Polyamide', 'Other_synthetic',
-    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Manufacturing_location', 'Use_location', 'Transportation_distance'
+    'Lyocell', 'Viscose', 'Acetate', 'Modal', 'Rayon', 'Other_regenerated', 'Other', 'Recycled_content', 'Reused_content',
+    'Manufacturing_location', 'Transportation_distance', 'Use_location'
 ]
 df = pd.DataFrame(columns=columns)
 
-country_to_continent = {
-    "United States": "North America",
-    "USA": "North America",
-    "Canada": "North America",
-    "Mexico": "North America",
-    "China": "Asia",
-    "India": "Asia",
-    "Japan": "Asia",
-    "South Korea": "Asia",
-    "Vietnam": "Asia",
-    "Bangladesh": "Asia",
-    "Italy": "Europe",
-    "France": "Europe",
-    "Germany": "Europe",
-    "Spain": "Europe",
-    "United Kingdom": "Europe",
-    "UK": "Europe",
-    "Portugal": "Europe",
-    "Turkey": "Europe",
-    "Brazil": "South America",
-    "Argentina": "South America",
-    "Colombia": "South America",
-    "Peru": "South America",
-    "Egypt": "Africa",
-    "Nigeria": "Africa",
-    "South Africa": "Africa",
-    "Australia": "Australia",
-    # Add more countries and their continents as needed
+continent_map = {
+    "Asia": [
+        "Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Brunei", "Cambodia",
+        "China", "Cyprus", "Georgia", "India", "Indonesia", "Iran", "Iraq", "Israel", "Japan", "Jordan",
+        "Kazakhstan", "Kuwait", "Kyrgyzstan", "Laos", "Lebanon", "Malaysia", "Maldives", "Mongolia",
+        "Myanmar (Burma)", "Nepal", "North Korea", "Oman", "Pakistan", "Philippines", "Qatar",
+        "Saudi Arabia", "Singapore", "South Korea", "Sri Lanka", "Syria", "Taiwan", "Tajikistan",
+        "Thailand", "Timor-Leste", "Turkey", "Turkmenistan", "United Arab Emirates", "Uzbekistan",
+        "Vietnam", "Yemen"
+    ],
+    "Europe": [
+        "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria",
+        "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+        "Iceland", "Ireland", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta",
+        "Moldova", "Monaco", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland",
+        "Portugal", "Romania", "Russia", "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain",
+        "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City"
+    ],
+    "North America": [
+        "Antigua and Barbuda", "Bahamas", "Barbados", "Belize", "Canada", "Costa Rica", "Cuba",
+        "Dominica", "Dominican Republic", "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras",
+        "Jamaica", "Mexico", "Nicaragua", "Panama", "Saint Kitts and Nevis", "Saint Lucia",
+        "Saint Vincent and the Grenadines", "Trinidad and Tobago", "United States"
+    ],
+    "South America": [
+        "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Guyana", "Paraguay",
+        "Peru", "Suriname", "Uruguay", "Venezuela"
+    ],
+    "Africa": [
+        "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon",
+        "Central African Republic", "Chad", "Comoros", "Congo", "Djibouti", "Egypt", "Equatorial Guinea", 
+        "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", 
+        "Ivory Coast", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania", 
+        "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", 
+        "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", 
+        "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe"
+    ],
+    "Australia": [
+        "Australia", "Fiji", "Kiribati", "Marshall Islands", "Micronesia", "Nauru", "New Zealand",
+        "Palau", "Papua New Guinea", "Samoa", "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu"
+    ]
 }
 
 def parse_fabric_string(fabric_string):
@@ -278,7 +292,10 @@ def get_continent_from_origin(data):
             country = country_origin_value[0].strip()
 
     if country:
-        return country_to_continent.get(country, np.nan)
+        for continent, countries in continent_map.items():
+            if country in countries:
+                return continent
+        return np.nan
     return np.nan
 
 def add_to_dataframe(data):
@@ -310,6 +327,8 @@ def add_to_dataframe(data):
     continent = get_continent_from_origin(data)
     new_row["Manufacturing_location"] = continent
 
+    #Filling in Recycled and Reused contents
+
     # Add new row to the existing DataFrame
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
@@ -320,16 +339,7 @@ def hello_world():
     return 'Hello World!'
 
 @app.route('/receive-data', methods=['POST', 'OPTIONS'])
-def receive_data():
-    # if request.method == "OPTIONS":
-    #     # Respond to preflight request with correct CORS headers
-    #     response = jsonify({"message": "CORS preflight successful"})
-    #     allowed_origins = ["chrome-extension://hkbnlehidddkgaefmcooilbgegnmclof", "chrome-extension://monjecbfolndichmnjlcebkjbcdlhhkk"]
-    #     response.headers.set("Access-Control-Allow-Origin", ", ".join(allowed_origins))
-    #     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
-    #     response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
-    #     response.headers.set('Access-Control-Allow-Credentials', 'true')
-    #     return '', 200 # Preflight successful     
+def receive_data():    
     try:
         data = request.get_json() # Extract JSON from request
         print(data)
